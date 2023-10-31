@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { signIn } from '@/auth';
 
 const InvoiceSchema = z.object({
   id: z.string(),
@@ -16,12 +17,19 @@ const InvoiceSchema = z.object({
   status: z.enum(['pending', 'paid'], {
     invalid_type_error: 'Please select an invoice status.',
   }),
+  email: z
+    .string({ invalid_type_error: 'Type your email please' })
+    .email({ message: 'Invalid email address' }),
+  password: z
+    .string({ invalid_type_error: 'Type your password please' })
+    .min(6),
   date: z.string(),
 });
 
 const CreateInvoice = InvoiceSchema.omit({ id: true, date: true });
 const UpdateInvoice = InvoiceSchema.omit({ date: true });
-const DeleteInvoice = InvoiceSchema.pick({ id: true });
+const LoginInvoice = InvoiceSchema.omit({ date: true });
+// const DeleteInvoice = InvoiceSchema.pick({ id: true });
 
 // This is temporary until @types/react-dom is updated
 export type State = {
@@ -29,6 +37,8 @@ export type State = {
     customerId?: string[];
     amount?: string[];
     status?: string[];
+    password?: string[];
+    email?: string[];
   };
   message?: string | null;
 };
@@ -70,6 +80,43 @@ export async function createInvoice(prevState: State, formData: FormData) {
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
+
+export async function loginInvoice(prevState: State, formData: FormData) {
+  // Validate form using Zod
+  const validatedFields = LoginInvoice.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+
+  // If form validation fails, return errors early. Otherwise, continue.
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Please fill email and password.',
+    };
+  }
+
+  // Prepare data for insertion into the database
+  const { email, password } = validatedFields.data;
+
+  // Insert data into the database
+  try {
+    await sql`
+        INSERT INTO login (email, password)
+        VALUES (${email}, ${password})
+      `;
+  } catch (error) {
+    // If a database error occurs, return a more specific error.
+    return {
+      message: 'Database Error: Failed to Login.',
+    };
+  }
+
+  // Revalidate the cache for the invoices page and redirect the user.
+  revalidatePath('/login');
+  redirect('/login');
+}
+
 export async function updateInvoice(
   id: string,
   prevState: State,
@@ -105,14 +152,28 @@ export async function updateInvoice(
   redirect('/dashboard/invoices');
 }
 
-export async function deleteInvoice(formData: FormData) {
-  throw new Error('Failed to Delete Invoice');
-    // Unreachable code block
-    try {
-        await sql`DELETE FROM invoices WHERE id = ${id}`;
-        revalidatePath('/dashboard/invoices');
-        return { message: 'Deleted Invoice' };
-      } catch (error) {
-        return { message: 'Database Error: Failed to Delete Invoice' };
-      }
+export async function deleteInvoice(id: string) {
+  // throw new Error('Failed to Delete Invoice');
+
+  try {
+    await sql`DELETE FROM invoices WHERE id = ${id}`;
+    revalidatePath('/dashboard/invoices');
+    return { message: 'Deleted Invoice' };
+  } catch (error) {
+    return { message: 'Database Error: Failed to Delete Invoice.' };
+  }
+}
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    await signIn('credentials', Object.fromEntries(formData));
+  } catch (error) {
+    if ((error as Error).message.includes('CredentialsSignin')) {
+      return 'CredentialsSignin';
+    }
+    throw error;
+  }
 }

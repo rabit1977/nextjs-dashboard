@@ -1,3 +1,4 @@
+import Cards from '@/app/ui/dashboard/cards';
 import RevenueChart from '@/app/ui/dashboard/revenue-chart';
 import {
   CardsSkeleton,
@@ -5,10 +6,8 @@ import {
   RevenueChartSkeleton,
 } from '@/app/ui/skeletons';
 import { Suspense } from 'react';
-import { fetchCardData } from '../../lib/data';
 import LatestInvoices from '../../ui/dashboard/latest-invoices';
 import { lusitana } from '../../ui/font';
-import Cards from '@/app/ui/dashboard/cards';
 
 export default async function Page() {
   return (
