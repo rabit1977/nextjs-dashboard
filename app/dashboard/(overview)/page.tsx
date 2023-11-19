@@ -1,4 +1,4 @@
-import Cards from '@/app/ui/dashboard/cards';
+import Cards from '@/app/ui/dashboard/cards/cards';
 import RevenueChart from '@/app/ui/dashboard/revenue-chart';
 import {
   CardsSkeleton,
